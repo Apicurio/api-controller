@@ -15,7 +15,7 @@ This project includes the following components:
 
 ## Pre-requisites
 
-An available Kubernetes cluster with support for the Kubernetes Gateway API must be available in the user's kubeconfig.
+An available Openshift cluster must be available in the user's kubeconfig.
 
 The expected flow for this project is as follows:
 
