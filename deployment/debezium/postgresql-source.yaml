@@ -1,0 +1,25 @@
+apiVersion: kafka.strimzi.io/v1beta2
+kind: KafkaConnector
+metadata:
+  name: postgres-connector0
+  namespace: api-controller
+  labels:
+    strimzi.io/cluster: kafka-connect-cluster
+spec:
+  class: io.debezium.connector.postgresql.PostgresConnector
+  tasksMax: 1
+  config:
+    topic.prefix: "registry"
+    schema.include.list: "public"
+    table.include.list: "public.outbox"
+    database.server.name": "dbserver1"
+    schema.whitelist: "registry"
+    tombstones.on.delete": "false"
+    transforms: "outbox"
+    transforms.outbox.type: "io.debezium.transforms.outbox.EventRouter"
+    connector.class": "io.debezium.connector.postgresql.PostgresConnector"
+    database.hostname: "postgresql-service"
+    database.port: 5432
+    database.user: "apicurio"
+    database.password: "registry"
+    database.dbname: "registry"

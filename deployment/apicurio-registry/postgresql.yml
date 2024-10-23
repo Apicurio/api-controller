@@ -1,0 +1,74 @@
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: registry-pvc
+  namespace: api-controller
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 1Gi  # Adjust the storage size as needed
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  namespace: "api-controller"
+  labels:
+    app: postgresql
+  name: postgresql
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: postgresql
+  template:
+    metadata:
+      labels:
+        app: postgresql
+    spec:
+      initContainers:
+        - name: init-data
+          image: busybox
+          command: ['sh', '-c', 'rm -rf /var/lib/postgresql/data/* && mkdir -p /var/lib/postgresql/data/pgdata']
+          volumeMounts:
+            - mountPath: "/var/lib/postgresql/data"
+              name: "registry-pgdata"
+      containers:
+        - name: postgresql
+          image: quay.io/debezium/postgres:13-alpine
+          ports:
+            - containerPort: 5432
+          env:
+            - name: POSTGRES_DB
+              value: registry
+            - name: POSTGRES_USER
+              value: apicurio
+            - name: POSTGRES_PASSWORD
+              value: registry
+            - name: PGDATA
+              value: "/var/lib/postgresql/data/pgdata"
+          volumeMounts:
+            - mountPath: "/var/lib/postgresql/data"
+              name: "registry-pgdata"
+      volumes:
+        - name: registry-pgdata
+          persistentVolumeClaim:
+            claimName: registry-pvc
+---
+apiVersion: v1
+kind: Service
+metadata:
+  namespace: "api-controller"
+  labels:
+    app: postgresql
+  name: postgresql-service
+spec:
+  ports:
+    - name: http
+      port: 5432
+      protocol: TCP
+      targetPort: 5432
+  selector:
+    app: postgresql
+  type: ClusterIP
