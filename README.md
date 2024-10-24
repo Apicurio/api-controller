@@ -30,11 +30,11 @@ Rate limits, request quotas, etc.
 
 * Step 3: When the new API spec is saved or an existing one is updated, Apicurio Registry emits an event. This event is triggered through Kafka.
 
-* Step 4: The messages are consumed using kcat.
+* Step 4: The messages are consumed using the script events-consumer.py.
 
-* Step 5: Upon consuming an event, the process using kcat extracts the metadata (such as artifact identifier and version) from the event and retrieves the latest version of the API specification from Apicurio Registry.
+* Step 5: Upon consuming an event, the events-consumer.py script extracts the metadata (such as artifact identifier and version) from the event and retrieves the latest version of the API specification from Apicurio Registry.
 
-* Step 6: The process using kcat then stores the API specification in a Git repository for additional version control and traceability. Storing API specs in Git allows the team to maintain a full history of the API designs outside the registry, making it easier to audit, collaborate, or revert changes.
+* Step 6: The events-consumer.py script then stores the API specification in a Git repository located in the directory kuadrant-resources for additional version control and traceability. Storing API specs in Git allows the team to maintain a full history of the API designs outside the registry, making it easier to audit, collaborate, or revert changes.
 
 The listener clones or pulls the latest version of the Git repository, commits the API spec (e.g., as api_specs/$API_ID.json), and pushes the updated repository.
 
@@ -42,6 +42,4 @@ The listener clones or pulls the latest version of the Git repository, commits t
 
 The listener uses the information from the API spec (retrieved from Apicurio Registry) to enforce policies like security (OAuth2, JWT, etc.) and rate limiting.
 
-* Step 8: The listener writes to a Git repo, that is used in a GitOps fashion to propagate changes to Kuadrant. An initial implementation will show how to achieve this via ArgoCD makes an API call to Kuadrant to apply or update the policies based on the spec. This step ensures that the API’s rate limits, authentication mechanisms, and traffic controls are enforced in line with the API’s definition.
-
-* Step 10: If all tests pass, the system promotes the API to production. If any tests fail, the pipeline can trigger alerts or rollback to a previous version of the API spec (stored in Git).
+* Step 9: The listener writes to a Git repo, that is used in a GitOps fashion to propagate changes to Kuadrant. An initial implementation will show how to achieve this via ArgoCD makes an API call to Kuadrant to apply or update the policies based on the spec. This step ensures that the API’s rate limits, authentication mechanisms, and traffic controls are enforced in line with the API’s definition.

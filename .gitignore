@@ -1,7 +1,7 @@
 # idea
 .idea/*
 
-kuadrant-resources/
+api-resources/
 
 # Compiled class file
 *.class
