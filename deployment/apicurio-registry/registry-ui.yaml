@@ -1,0 +1,96 @@
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  namespace: api-controller
+  labels:
+    app: apicurio-registry
+    component: apicurio-registry-ui
+  name: apicurio-registry-ui
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      component: apicurio-registry-ui
+  template:
+    metadata:
+      labels:
+        app: apicurio-registry
+        component: apicurio-registry-ui
+    spec:
+      containers:
+        - image: >-
+            quay.io/apicurio/apicurio-registry-ui:latest-release
+          name: apicurio-registry-ui
+          ports:
+            - name: web
+              containerPort: 8080
+              protocol: TCP
+          env:
+            - name: REGISTRY_API_URL
+              value: 'https://apicurio-registry-api-controller.apps.api-controller.apicurio.integration-qe.com/apis/registry/v3'
+          resources:
+            limits:
+              cpu: 500m
+              memory: 1000Mi
+            requests:
+              cpu: 100m
+              memory: 200Mi
+          livenessProbe:
+            httpGet:
+              path: /config.js
+              port: 8080
+              scheme: HTTP
+            initialDelaySeconds: 10
+            timeoutSeconds: 5
+            periodSeconds: 10
+            successThreshold: 1
+            failureThreshold: 3
+          readinessProbe:
+            httpGet:
+              path: /config.js
+              port: 8080
+              scheme: HTTP
+            initialDelaySeconds: 10
+            timeoutSeconds: 5
+            periodSeconds: 10
+            successThreshold: 1
+            failureThreshold: 3
+---
+apiVersion: v1
+kind: Service
+metadata:
+  namespace: api-controller
+  labels:
+    app: apicurio-registry
+    template: apicurio-registry-ui
+  name: apicurio-registry-ui
+spec:
+  selector:
+    component: apicurio-registry-ui
+  ports:
+    - name: web
+      port: 8080
+      protocol: TCP
+      targetPort: web # referring to target port via "name" instead that via the number
+  sessionAffinity: None
+status:
+  loadBalancer: {}
+---
+apiVersion: route.openshift.io/v1
+kind: Route
+metadata:
+  namespace: api-controller
+  name: apicurio-registry-ui
+  labels:
+    app: apicurio-registry
+    template: apicurio-registry-ui
+spec:
+  to:
+    kind: Service
+    name: apicurio-registry-ui
+    weight: 100
+  tls:
+    termination: edge
+    insecureEdgeTerminationPolicy: Redirect
+  wildcardPolicy: None
