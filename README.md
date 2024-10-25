@@ -34,12 +34,6 @@ Rate limits, request quotas, etc.
 
 * Step 5: Upon consuming an event, the events-consumer.py script extracts the metadata (such as artifact identifier and version) from the event and retrieves the latest version of the API specification from Apicurio Registry.
 
-* Step 6: The events-consumer.py script then stores the API specification in a Git repository located in the directory kuadrant-resources for additional version control and traceability. Storing API specs in Git allows the team to maintain a full history of the API designs outside the registry, making it easier to audit, collaborate, or revert changes.
+* Step 6: The events-consumer.py script then stores the API specification in a Git repository located in the directory api-resources for additional version control and traceability. Storing API specs in Git allows the team to maintain a full history of the API designs outside the registry, making it easier to audit, collaborate, or revert changes.
 
-The listener clones or pulls the latest version of the Git repository, commits the API spec (e.g., as api_specs/$API_ID.json), and pushes the updated repository.
-
-* Step 7: Once the API spec is successfully stored in Git, the CI/CD Event Listener triggers an integration with Kuadrant. Kuadrant is responsible for managing the API’s policies (e.g., rate limiting, authentication, and access control).
-
-The listener uses the information from the API spec (retrieved from Apicurio Registry) to enforce policies like security (OAuth2, JWT, etc.) and rate limiting.
-
-* Step 9: The listener writes to a Git repo, that is used in a GitOps fashion to propagate changes to Kuadrant. An initial implementation will show how to achieve this via ArgoCD makes an API call to Kuadrant to apply or update the policies based on the spec. This step ensures that the API’s rate limits, authentication mechanisms, and traffic controls are enforced in line with the API’s definition.
+* Step 7: The events-consumer.py writes to a Git repo, that is used in a GitOps fashion to propagate changes to Kuadrant. An initial implementation will show how to achieve this via ArgoCD makes an API call to Kuadrant to apply or update the policies based on the spec. This step ensures that the API’s rate limits, authentication mechanisms, and traffic controls are enforced in line with the API’s definition.

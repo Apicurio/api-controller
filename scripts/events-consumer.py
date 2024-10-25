@@ -46,8 +46,6 @@ def consume_messages_in_batches(consumer, batch_size=10, timeout=5, idle_timeout
                 if idle_time >= idle_timeout:
                     print("No messages left in Kafka. Pushing files to git...")
                     commit_and_push_openapi_files()
-                    print("No messages left in Kafka. Invoking Kuadrant CLI...")
-                    invoke_kuadrant_cli()
                     break
     finally:
         consumer.close()
@@ -159,7 +157,7 @@ def save_content_to_file(group_id, artifact_id, version, content):
 
 def commit_and_push_openapi_files():
     """
-    For each OpenAPI file in the 'kuadrant-resources' directory, commit and push to a Git repository.
+    For each OpenAPI file in the 'api-resources' directory, commit and push to a Git repository.
     """
     folder_path = os.path.join(os.path.dirname(os.getcwd()), 'api-resources')
 
@@ -187,72 +185,6 @@ def commit_and_push_openapi_files():
         print("Successfully pushed all changes to the remote repository.")
     except subprocess.CalledProcessError as e:
         print(f"Error pushing changes to the repository: {e.stderr}")
-
-
-def invoke_kuadrant_cli():
-    """
-    Invokes the kuadrantctl CLI for each OpenAPI file present in the api-resources directory.
-    """
-    folder_path = os.path.join(os.path.dirname(os.getcwd()), 'api-resources')
-
-    for filename in os.listdir(folder_path):
-        file_path = os.path.join(folder_path, filename)
-
-        if os.path.isfile(file_path):
-            print(f"Processing file: {file_path}")
-
-            gateway_api_command = [
-                'kuadrantctl', 'generate', 'gatewayapi', 'httproute',
-                '--oas', file_path,
-                '-o', 'yaml'
-            ]
-
-            authpolicy_command = [
-                'kuadrantctl', 'generate', 'kuadrant', 'authpolicy',
-                '--oas', file_path,
-                '-o', 'yaml'
-            ]
-
-            ratelimit_policy_command = [
-                'kuadrantctl', 'generate', 'kuadrant', 'ratelimitpolicy',
-                '--oas', file_path,
-                '-o', 'yaml'
-            ]
-
-            gateway_api_resource = invoke_kuadrant_command(authpolicy_command, filename)
-            authpolicy_resource = invoke_kuadrant_command(authpolicy_command, filename)
-            ratelimit_policy_resource = invoke_kuadrant_command(ratelimit_policy_command, filename)
-
-            apply_kuadrant_resource(gateway_api_resource)
-            apply_kuadrant_resource(authpolicy_resource)
-            apply_kuadrant_resource(ratelimit_policy_resource)
-
-
-def apply_kuadrant_resource(resource_string):
-    """
-    Apply a Kuadrant resource to the Kubernetes cluster using kubectl with the resource in string format.
-    """
-    try:
-        process = subprocess.run(
-            ['kubectl', 'apply', '-f', '-', '-n', 'api-controller'],
-            input=resource_string,
-            text=True,
-            check=True,
-            capture_output=True
-        )
-        print(f"Successfully applied Kuadrant resource:\n{process.stdout}")
-    except subprocess.CalledProcessError as e:
-        print(f"Error applying Kuadrant resource:\n{e.stderr}")
-
-
-
-def invoke_kuadrant_command(kuadrant_command, filename):
-    try:
-        result = subprocess.run(kuadrant_command, check=True, capture_output=True, text=True)
-        return result.stdout
-    except subprocess.CalledProcessError as e:
-        print(f"Error invoking Kuadrant CLI for {filename}:\n{e.stderr}")
-
 
 def main():
     """
