@@ -44,6 +44,8 @@ def consume_messages_in_batches(consumer, batch_size=10, timeout=5, idle_timeout
             else:
                 idle_time += timeout
                 if idle_time >= idle_timeout:
+                    print("No messages left in Kafka. Pushing files to git...")
+                    commit_and_push_openapi_files()
                     print("No messages left in Kafka. Invoking Kuadrant CLI...")
                     invoke_kuadrant_cli()
                     break
@@ -153,6 +155,38 @@ def save_content_to_file(group_id, artifact_id, version, content):
         file.write(content)
 
     print(f"Content saved to {file_path}")
+
+
+def commit_and_push_openapi_files():
+    """
+    For each OpenAPI file in the 'kuadrant-resources' directory, commit and push to a Git repository.
+    """
+    folder_path = os.path.join(os.path.dirname(os.getcwd()), 'api-resources')
+
+    if not os.path.exists(folder_path):
+        print(f"Directory {folder_path} does not exist.")
+        return
+
+    for filename in os.listdir(folder_path):
+        file_path = os.path.join(folder_path, filename)
+
+        if os.path.isfile(file_path):
+            try:
+                subprocess.run(['git', '-C', folder_path, 'add', file_path], check=True)
+                print(f"Added {filename} to Git staging area.")
+
+                commit_message = f"Add OpenAPI definition for {filename}"
+                subprocess.run(['git', '-C', folder_path, 'commit', '-m', commit_message], check=True)
+                print(f"Committed {filename} with message: {commit_message}")
+
+            except subprocess.CalledProcessError as e:
+                print(f"Error committing {filename}: {e.stderr}")
+
+    try:
+        subprocess.run(['git', '-C', folder_path, 'push'], check=True)
+        print("Successfully pushed all changes to the remote repository.")
+    except subprocess.CalledProcessError as e:
+        print(f"Error pushing changes to the repository: {e.stderr}")
 
 
 def invoke_kuadrant_cli():
