@@ -39,7 +39,7 @@ spec:
               value: "true"
             - name: QUARKUS_HTTP_CORS_ORIGINS
               value: "*"
-          image: quay.io/apicurio/apicurio-registry:latest-release
+          image: quay.io/apicurio/apicurio-registry:latest-snapshot
           imagePullPolicy: Always
           livenessProbe:
             failureThreshold: 3

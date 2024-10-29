@@ -3,6 +3,7 @@ import json
 import os
 import subprocess
 import uuid
+import shutil
 
 from apicurioregistrysdk.client.registry_client import RegistryClient
 from confluent_kafka import Consumer, KafkaError
@@ -14,6 +15,7 @@ KAFKA_TOPIC = 'outbox.event.registry-events'
 APICURIO_REGISTRY_URL = "https://apicurio-registry-api-controller.apps.api-controller.apicurio.integration-qe.com/apis/registry/v3"
 KAFKA_BOOTSTRAP_SERVERS = 'kafka-cluster-kafka-bootstrap-api-controller.apps.api-controller.apicurio.integration-qe.com:443'
 GROUP_ID = uuid.uuid4()
+
 
 def create_consumer():
     """
@@ -28,6 +30,7 @@ def create_consumer():
     })
     consumer.subscribe([KAFKA_TOPIC])
     return consumer
+
 
 def consume_messages_in_batches(consumer, batch_size=10, timeout=5, idle_timeout=10):
     """
@@ -45,10 +48,11 @@ def consume_messages_in_batches(consumer, batch_size=10, timeout=5, idle_timeout
                 idle_time += timeout
                 if idle_time >= idle_timeout:
                     print("No messages left in Kafka. Pushing files to git...")
-                    commit_and_push_openapi_files()
+                    commit_and_push_to_git()
                     break
     finally:
         consumer.close()
+
 
 def process_messages(messages):
     """
@@ -85,9 +89,12 @@ def process_message(msg):
         if event_type == "ARTIFACT_VERSION_CREATED":
             print(f"Artifact version created event - {event_type}: Artifact ID: {artifact_id}, Version: {version}")
             asyncio.run(get_artifact_content(group_id, artifact_id, version))
+        elif event_type == "ARTIFACT_DELETED":
+            print(f"Artifact deleted event - {event_type}: Artifact ID: {artifact_id}")
+            delete_artifact_directory(group_id, artifact_id)
         elif event_type == "ARTIFACT_VERSION_DELETED":
             print(f"Artifact version deleted event - {event_type}: Artifact ID: {artifact_id}, Version: {version}")
-            delete_file_if_exists(group_id, artifact_id, version)
+            delete_version(group_id, artifact_id, version)
         else:
             print(f"Other Event - {event_type}: Artifact ID: {artifact_id}, Version: {version}")
 
@@ -111,80 +118,116 @@ async def get_artifact_content(group_id, artifact_id, version):
         artifact_content = await client.groups.by_group_id(group_id).artifacts.by_artifact_id(
             artifact_id).versions.by_version_expression(version).content.get()
 
-        save_content_to_file(group_id, artifact_id, version, artifact_content)
+        invoke_kuadrant_cli(group_id, artifact_id, version, artifact_content)
     except Exception as e:
         print(f"Failed to retrieve artifact content for {artifact_id} version {version}: {e}")
         return None
 
 
-def delete_file_if_exists(group_id, artifact_id, version):
+def delete_artifact_directory(group_id, artifact_id):
     """
-    Delete the file named using the groupId, artifactId, and version if it exists
-    in the api-definitions directory.
+    Deletes the entire directory for a specific group_id and artifact_id,
+    including all version subdirectories.
     """
-    folder_path = os.path.join(os.path.dirname(os.getcwd()), 'api-definitions')
+    folder_path = os.path.join(
+        os.path.dirname(os.getcwd()),
+        'api-resources',
+        group_id,
+        artifact_id
+    )
 
-    filename = f"{group_id}_{artifact_id}_v{version}.yaml"
-    file_path = os.path.join(folder_path, filename)
-
-    if os.path.exists(file_path):
-        # Delete the file
-        os.remove(file_path)
-        print(f"File {file_path} has been deleted.")
+    if os.path.exists(folder_path):
+        shutil.rmtree(folder_path)
+        print(f"Deleted artifact directory with all versions: {folder_path}")
     else:
-        print(f"File {file_path} does not exist, so nothing was deleted.")
+        print(f"Artifact directory does not exist: {folder_path}")
+
+def delete_version(group_id, artifact_id, version):
+    """
+    Deletes the directory corresponding to a specific group_id, artifact_id, and version.
+    """
+    folder_path = os.path.join(
+        os.path.dirname(os.getcwd()),
+        'api-resources',
+        group_id,
+        artifact_id,
+        version
+    )
+
+    if os.path.exists(folder_path):
+        shutil.rmtree(folder_path)  # Recursively deletes the directory
+        print(f"Deleted directory: {folder_path}")
+    else:
+        print(f"Directory does not exist: {folder_path}")
 
 
-def save_content_to_file(group_id, artifact_id, version, content):
+def invoke_kuadrant_cli(group_id, artifact_id, version, openapi_content):
     """
-    Save the given content to a file named using the groupId, artifactId, and version.
+    Invokes the kuadrantctl CLI for the given coordinates and .
     """
-    folder_path = os.path.join(os.path.dirname(os.getcwd()), 'api-resources')
+    invoke_kuadrant_command(group_id, artifact_id, version, ['kuadrantctl', 'generate', 'gatewayapi', 'httproute', '--oas', '-'], openapi_content, 'httproute')
+    invoke_kuadrant_command(group_id, artifact_id, version, ['kuadrantctl', 'generate', 'kuadrant', 'authpolicy', '--oas', '-'], openapi_content, 'authpolicy')
+    invoke_kuadrant_command(group_id, artifact_id, version, ['kuadrantctl', 'generate', 'kuadrant', 'ratelimitpolicy', '--oas', '-'], openapi_content, 'ratelimiting_policy')
+
+
+def invoke_kuadrant_command(group_id, artifact_id, version, args, openapi_content, filename):
+    # Define the path to store the generated Kuadrant resources
+
+    # Define the path based on group_id, artifact_id, and version
+    folder_path = os.path.join(
+        os.path.dirname(os.getcwd()),
+        'api-resources',
+        group_id,
+        artifact_id,
+        version
+    )
 
     os.makedirs(folder_path, exist_ok=True)
 
-    filename = f"{group_id}_{artifact_id}_v{version}.yaml"
+    # Define the output filename for the generated Kuadrant resource
+    filename = f"{group_id}_{artifact_id}_v{version}_{filename}.yaml"
     file_path = os.path.join(folder_path, filename)
 
-    if isinstance(content, bytes):
-        content = content.decode('utf-8')
+    try:
+        if isinstance(openapi_content, bytes):
+            openapi_content = openapi_content.decode("utf-8")
 
-    with open(file_path, 'w') as file:
-        file.write(content)
+        # Invoke kuadrantctl to generate resources from OpenAPI content
+        process = subprocess.run(
+            args,
+            input=openapi_content,  # Pass the OpenAPI content as input
+            text=True,  # Treat input as a string
+            capture_output=True,
+            check=True
+        )
 
-    print(f"Content saved to {file_path}")
+        # Write the generated output to the file
+        with open(file_path, 'w') as file:
+            file.write(process.stdout)
+        print(f"Kuadrant resource generated and saved to {file_path}")
+
+    except subprocess.CalledProcessError as e:
+        print(f"Error generating Kuadrant resources:\n{e.stderr}")
 
 
-def commit_and_push_openapi_files():
+def commit_and_push_to_git():
     """
-    For each OpenAPI file in the 'api-resources' directory, commit and push to a Git repository.
+    Commit and push all changes in the api-resources directory to the Git repository.
     """
-    folder_path = os.path.join(os.path.dirname(os.getcwd()), 'api-resources')
-
-    if not os.path.exists(folder_path):
-        print(f"Directory {folder_path} does not exist.")
-        return
-
-    for filename in os.listdir(folder_path):
-        file_path = os.path.join(folder_path, filename)
-
-        if os.path.isfile(file_path):
-            try:
-                subprocess.run(['git', '-C', folder_path, 'add', file_path], check=True)
-                print(f"Added {filename} to Git staging area.")
-
-                commit_message = f"Add OpenAPI definition for {filename}"
-                subprocess.run(['git', '-C', folder_path, 'commit', '-m', commit_message], check=True)
-                print(f"Committed {filename} with message: {commit_message}")
-
-            except subprocess.CalledProcessError as e:
-                print(f"Error committing {filename}: {e.stderr}")
+    api_resources_path = os.path.join(os.path.dirname(os.getcwd()), 'api-resources')
 
     try:
-        subprocess.run(['git', '-C', folder_path, 'push'], check=True)
-        print("Successfully pushed all changes to the remote repository.")
+        subprocess.run(['git', '-C', api_resources_path, 'add', '.'], check=True)
+
+        commit_message = "Update Kuadrant resources"
+        subprocess.run(['git', '-C', api_resources_path, 'commit', '-m', commit_message], check=True)
+
+        subprocess.run(['git', '-C', api_resources_path, 'push'], check=True)
+
+        print("Successfully committed and pushed changes to the Git repository.")
     except subprocess.CalledProcessError as e:
-        print(f"Error pushing changes to the repository: {e.stderr}")
+        print(f"Error committing and pushing to Git:\n{e.stderr}")
+
 
 def main():
     """
@@ -193,6 +236,7 @@ def main():
     consumer = create_consumer()
     consume_messages_in_batches(consumer, batch_size=10, timeout=5)
     exit(0)
+
 
 # Entry point of the script
 if __name__ == '__main__':
