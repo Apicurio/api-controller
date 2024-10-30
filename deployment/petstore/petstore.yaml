@@ -1,9 +1,16 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: "petstore"
+  namespace: "petstore"
+  labels:
+    name: "petstore"
 ---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: petstore
-  namespace: api-controller
+  namespace: petstore
   labels:
     app: petstore
 spec:
@@ -30,7 +37,7 @@ apiVersion: v1
 kind: Service
 metadata:
   name: petstore
-  namespace: api-controller
+  namespace: petstore
 spec:
   selector:
     app: petstore

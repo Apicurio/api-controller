@@ -1,0 +1,22 @@
+apiVersion: argoproj.io/v1beta1
+kind: Application
+metadata:
+  name: petstore-resources
+  namespace: argocd
+spec:
+  project: default
+  source:
+    repoURL: 'https://github.com/carlesarnal/api-resources.git'
+    targetRevision: main
+    path: default/3897b230-77f6-4d1a-87ef-3b41b6cba1be
+    directory:
+      recurse: true
+  destination:
+    server: 'https://kubernetes.default.svc'
+    namespace: petstore
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    retry:
+      limit: 5
