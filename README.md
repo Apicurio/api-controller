@@ -30,7 +30,7 @@ Any operator used in this demo must be installed using the Openshift console.
 
 2. To enforce some restrictions for our APIs, we need Kuadrant installed in our cluster. Kuadrant has the Kubernetes Gateway API and a provider to work. We will use Istio for this project.
 
-   * Install Kubernetes Gateway API by using: `oc apply -f https://github.com/kubernetes-sigs/gateway-api/releases/download/v0.4.0/standard-install.yaml` 
+   * Install Kubernetes Gateway API by using: `oc apply -k https://github.com/kubernetes-sigs/gateway-api/config/crd?ref=v0.5.1` 
    * Install Istio: 
 ```curl -L https://istio.io/downloadIstio | ISTIO_VERSION=1.22.5 sh -
 ./istio-1.22.5/bin/istioctl install --set profile=minimal

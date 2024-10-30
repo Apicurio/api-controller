@@ -45,7 +45,6 @@ paths:
         backendRefs:
           - name: petstore
             port: 80
-            namespace: petstore
         rate_limit:
           rates:
             - limit: 3
@@ -62,7 +61,6 @@ paths:
         backendRefs:
           - name: petstore
             port: 80
-            namespace: petstore
       operationId: "postDog"
       responses:
         405:
