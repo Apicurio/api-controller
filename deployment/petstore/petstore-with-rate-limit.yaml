@@ -5,12 +5,11 @@ info:
 x-kuadrant:
   route:
     name: "petstore"
-    namespace: "petstore"
     hostnames:
-      - example.com
+      - api.petstore.com
     parentRefs:
-      - name: istio-ingressgateway
-        namespace: istio-system
+      - name: kuadrant-ingressgateway
+        namespace: gateway-system
 servers:
   - url: https://example.io/api/v1
 paths:
@@ -19,7 +18,6 @@ paths:
       backendRefs:
         - name: petstore
           port: 80
-          namespace: petstore
       rate_limit:
         rates:
           - limit: 1

@@ -74,11 +74,9 @@ kubectl apply -f https://raw.githubusercontent.com/Kuadrant/kuadrant-operator/ma
   * Deploy Postgresql connector: `oc apply -f ./deployment/debezium/postgresql-source.yaml`
   * Check connector status: `oc get kafkaconnector postgres-connector0 -n api-controller -o jsonpath='{.status}'`
 
-8. Install ArgoCD. For the full integration to work, argocd is required. It will sync the Kuadrant resources generated and apply them to the Openshift cluster. The argocd operator can be installed from the Openshift Console, just like Strimzi or Kuadrant. For convenience, we recomment installing the Red Hat OpenShift GitOps operator.
+8. Install ArgoCD. For the full integration to work, argocd is required. It will sync the Kuadrant resources generated and apply them to the Openshift cluster. The argocd operator can be installed from the Openshift Console, just like Strimzi or Kuadrant. For convenience, we recommend installing the Red Hat OpenShift GitOps operator.
 
    * Once the ArgoCD operator has been installed, we must install the ArgoCD resources:
-     * Create ArgoCD instance: `oc apply -f ./deployment/argocd/argocd_instance.yaml`
-     * Create ArgoCD project: `oc apply -f ./deployment/argocd/argocd_project.yaml`
      * Create ArgoCD app: `oc apply -f ./deployment/argocd/argocd_app.yaml`
 
 

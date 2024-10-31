@@ -4,6 +4,7 @@ import os
 import subprocess
 import uuid
 import shutil
+import yaml
 
 from apicurioregistrysdk.client.registry_client import RegistryClient
 from confluent_kafka import Consumer, KafkaError
@@ -200,9 +201,14 @@ def invoke_kuadrant_command(group_id, artifact_id, version, args, openapi_conten
             check=True
         )
 
+        data = yaml.safe_load(process.stdout)
+
+        #Remove the status part, otherwise the sync will fail
+        data.pop('status', None)
+
         # Write the generated output to the file
         with open(file_path, 'w') as file:
-            file.write(process.stdout)
+            yaml.dump(data, file, default_flow_style=False)
         print(f"Kuadrant resource generated and saved to {file_path}")
 
     except subprocess.CalledProcessError as e:
@@ -234,8 +240,6 @@ def main():
     """
     consumer = create_consumer()
     consume_messages_in_batches(consumer, batch_size=10, timeout=5)
-    exit(0)
-
 
 # Entry point of the script
 if __name__ == '__main__':
