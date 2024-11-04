@@ -2,21 +2,26 @@ apiVersion: argoproj.io/v1alpha1
 kind: Application
 metadata:
   name: petstore-resources
-  namespace: openshift-operators
+  namespace: openshift-gitops
 spec:
+  destination:
+    namespace: petstore
+    server: 'https://kubernetes.default.svc'
   project: default
   source:
+    directory:
+      jsonnet: {}
+      recurse: true
+    path: api-resources/
     repoURL: 'https://github.com/carlesarnal/api-resources.git'
     targetRevision: main
-    path: ./
-    directory:
-      recurse: true
-  destination:
-    server: 'https://kubernetes.default.svc'
-    namespace: petstore
   syncPolicy:
     automated:
       prune: true
       selfHeal: true
     retry:
+      backoff:
+        duration: 5s
+        factor: 2
+        maxDuration: 3m0s
       limit: 5

@@ -5,13 +5,14 @@ info:
 x-kuadrant:
   route:
     name: "petstore"
+    namespace: "petstore"
     hostnames:
-      - api.petstore.com
+      - api-controller.apicurio.integration-qe.com
     parentRefs:
-      - name: kuadrant-ingressgateway
-        namespace: gateway-system
+      - name: istio-ingressgateway
+        namespace: istio-system
 servers:
-  - url: https://example.io/api/v1
+  - url: https://example.io/v1
 paths:
   /cat:
     x-kuadrant:  ## Path level Kuadrant Extension

@@ -18,6 +18,7 @@ Any operator used in this demo must be installed using the Openshift console.
 ## Pre-requisites
 
 * An available Openshift cluster must be available in the user's kubeconfig.
+* Kuadrant must be installed in your cluster. Instructions to install can be found [here](https://docs.kuadrant.io/0.11.0/kuadrant-operator/doc/install/install-openshift/).
 * Kuadrantctl is available locally. Instructions to install it can be found [here](https://github.com/Kuadrant/kuadrantctl?tab=readme-ov-file#installing-pre-compiled-binaries).
 * oc cli is available locally.
 
@@ -27,20 +28,6 @@ Any operator used in this demo must be installed using the Openshift console.
 1. We must start by creating the namespace that will be used for this project:
 
   `oc apply -f ./deployment/namespace/apicurio-api-controller.yaml`
-
-2. To enforce some restrictions for our APIs, we need Kuadrant installed in our cluster. Kuadrant has the Kubernetes Gateway API and a provider to work. We will use Istio for this project.
-
-   * Install Kubernetes Gateway API by using: `oc apply -k https://github.com/kubernetes-sigs/gateway-api/config/crd?ref=v0.5.1` 
-   * Install Istio: 
-```curl -L https://istio.io/downloadIstio | ISTIO_VERSION=1.22.5 sh -
-./istio-1.22.5/bin/istioctl install --set profile=minimal
-./istio-1.22.5/bin/istioctl operator init
-kubectl apply -f https://raw.githubusercontent.com/Kuadrant/kuadrant-operator/main/config/dependencies/istio/istio-operator.yaml
-```
-
-   * Install Kuadrant Operator. The operator is available from the Openshift Console OperatorHub. Just follow [installation steps](https://docs.openshift.com/container-platform/4.11/operators/user/olm-installing-operators-in-namespace.html#olm-installing-from-operatorhub-using-web-console_olm-installing-operators-in-namespace) choosing the "Kuadrant Operator" from the catalog.
-
-   * Once the operator has been installed, create the Kuadrant instance `oc apply -f ./deployment/kuadrant/kuadrant.yaml`
 
 3. Now we have to deploy Strimzi. It can be installed from Operator Hub in Openshift or using the following command:
 
@@ -77,6 +64,8 @@ kubectl apply -f https://raw.githubusercontent.com/Kuadrant/kuadrant-operator/ma
 8. Install ArgoCD. For the full integration to work, argocd is required. It will sync the Kuadrant resources generated and apply them to the Openshift cluster. The argocd operator can be installed from the Openshift Console, just like Strimzi or Kuadrant. For convenience, we recommend installing the Red Hat OpenShift GitOps operator.
 
    * Once the ArgoCD operator has been installed, we must install the ArgoCD resources:
+     * Create ArgoCD role, so that the ArgoCD ServiceAccount can manage Kuadrant resources:  `oc apply -f ./deployment/argocd/cluster_role.yaml`
+     * Assing the role to the ArgoCD service account: `oc apply -f ./deployment/argocd/argocd_role_binding.yaml`
      * Create ArgoCD app: `oc apply -f ./deployment/argocd/argocd_app.yaml`
 
 

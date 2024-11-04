@@ -13,8 +13,8 @@ from kiota_abstractions.authentication import AnonymousAuthenticationProvider
 from kiota_http.httpx_request_adapter import HttpxRequestAdapter
 
 KAFKA_TOPIC = 'outbox.event.registry-events'
-APICURIO_REGISTRY_URL = "https://apicurio-registry-api-controller.apps.api-controller-1.apicurio.integration-qe.com/apis/registry/v3"
-KAFKA_BOOTSTRAP_SERVERS = 'kafka-cluster-kafka-bootstrap-api-controller.apps.api-controller-1.apicurio.integration-qe.com:443'
+APICURIO_REGISTRY_URL = "https://apicurio-registry-api-controller.apps.api-controller.apicurio.integration-qe.com/apis/registry/v3"
+KAFKA_BOOTSTRAP_SERVERS = 'kafka-cluster-kafka-bootstrap-api-controller.apps.api-controller.apicurio.integration-qe.com:443'
 GROUP_ID = uuid.uuid4()
 
 def create_consumer():
@@ -30,7 +30,6 @@ def create_consumer():
     })
     consumer.subscribe([KAFKA_TOPIC])
     return consumer
-
 
 def consume_messages_in_batches(consumer, batch_size=10, timeout=5, idle_timeout=10):
     """
@@ -53,7 +52,6 @@ def consume_messages_in_batches(consumer, batch_size=10, timeout=5, idle_timeout
     finally:
         consumer.close()
 
-
 def process_messages(messages):
     """
     Process a batch of messages.
@@ -70,7 +68,6 @@ def process_messages(messages):
             process_message(msg)
         except json.JSONDecodeError as e:
             print(f"Error decoding message: {e}")
-
 
 def process_message(msg):
     """
@@ -103,7 +100,6 @@ def process_message(msg):
     except KeyError as e:
         print(f"Missing expected key: {e}")
 
-
 async def get_artifact_content(group_id, artifact_id, version):
     """
     Fetch the artifact content from Apicurio Registry using the artifact ID and version.
@@ -123,7 +119,6 @@ async def get_artifact_content(group_id, artifact_id, version):
         print(f"Failed to retrieve artifact content for {artifact_id} version {version}: {e}")
         return None
 
-
 def delete_artifact_directory(group_id, artifact_id):
     """
     Deletes the entire directory for a specific group_id and artifact_id,
@@ -131,7 +126,7 @@ def delete_artifact_directory(group_id, artifact_id):
     """
     folder_path = os.path.join(
         os.path.dirname(os.getcwd()),
-        'api-resources',
+        'api-resources/api-resources',
         group_id,
         artifact_id
     )
@@ -148,7 +143,7 @@ def delete_version(group_id, artifact_id, version):
     """
     folder_path = os.path.join(
         os.path.dirname(os.getcwd()),
-        'api-resources',
+        'api-resources/api-resources',
         group_id,
         artifact_id,
         version
@@ -160,7 +155,6 @@ def delete_version(group_id, artifact_id, version):
     else:
         print(f"Directory does not exist: {folder_path}")
 
-
 def invoke_kuadrant_cli(group_id, artifact_id, version, openapi_content):
     """
     Invokes the kuadrantctl CLI for the given coordinates and .
@@ -169,14 +163,13 @@ def invoke_kuadrant_cli(group_id, artifact_id, version, openapi_content):
     invoke_kuadrant_command(group_id, artifact_id, version, ['kuadrantctl', 'generate', 'kuadrant', 'authpolicy', '--oas', '-'], openapi_content, 'authpolicy')
     invoke_kuadrant_command(group_id, artifact_id, version, ['kuadrantctl', 'generate', 'kuadrant', 'ratelimitpolicy', '--oas', '-'], openapi_content, 'ratelimiting_policy')
 
-
 def invoke_kuadrant_command(group_id, artifact_id, version, args, openapi_content, filename):
     # Define the path to store the generated Kuadrant resources
 
     # Define the path based on group_id, artifact_id, and version
     folder_path = os.path.join(
         os.path.dirname(os.getcwd()),
-        'api-resources',
+        'api-resources/api-resources',
         group_id,
         artifact_id,
         version
@@ -214,12 +207,11 @@ def invoke_kuadrant_command(group_id, artifact_id, version, args, openapi_conten
     except subprocess.CalledProcessError as e:
         print(f"Error generating Kuadrant resources:\n{e.stderr}")
 
-
 def commit_and_push_to_git():
     """
-    Commit and push all changes in the api-resources directory to the Git repository.
+    Commit and push all changes in the api-resources/api-resources directory to the Git repository.
     """
-    api_resources_path = os.path.join(os.path.dirname(os.getcwd()), 'api-resources')
+    api_resources_path = os.path.join(os.path.dirname(os.getcwd()), 'api-resources/api-resources')
 
     try:
         subprocess.run(['git', '-C', api_resources_path, 'add', '.'], check=True)
@@ -232,7 +224,6 @@ def commit_and_push_to_git():
         print("Successfully committed and pushed changes to the Git repository.")
     except subprocess.CalledProcessError as e:
         print(f"Error committing and pushing to Git:\n{e.stderr}")
-
 
 def main():
     """

@@ -1,6 +1,0 @@
-apiVersion: kuadrant.io/v1beta1
-kind: Kuadrant
-metadata:
-  namespace: "api-controller"
-  name: kuadrant
-spec: {}
