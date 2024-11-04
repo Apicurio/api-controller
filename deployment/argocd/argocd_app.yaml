@@ -13,7 +13,7 @@ spec:
       jsonnet: {}
       recurse: true
     path: api-resources/
-    repoURL: 'https://github.com/carlesarnal/api-resources.git'
+    repoURL: ${REPO_URL}
     targetRevision: main
   syncPolicy:
     automated:

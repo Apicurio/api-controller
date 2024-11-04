@@ -1,0 +1,18 @@
+apiVersion: gateway.networking.k8s.io/v1
+kind: Gateway
+metadata:
+  name: external
+  namespace: gateway-system
+  annotations:
+    kuadrant.io/namespace: kuadrant-system
+    networking.istio.io/service-type: ClusterIP
+spec:
+  gatewayClassName: istio
+  listeners:
+    - allowedRoutes:
+        namespaces:
+          from: All
+      hostname: '*.io'
+      name: external
+      port: 80
+      protocol: HTTP

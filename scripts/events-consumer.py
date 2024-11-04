@@ -13,8 +13,8 @@ from kiota_abstractions.authentication import AnonymousAuthenticationProvider
 from kiota_http.httpx_request_adapter import HttpxRequestAdapter
 
 KAFKA_TOPIC = 'outbox.event.registry-events'
-APICURIO_REGISTRY_URL = "https://apicurio-registry-api-controller.apps.api-controller.apicurio.integration-qe.com/apis/registry/v3"
-KAFKA_BOOTSTRAP_SERVERS = 'kafka-cluster-kafka-bootstrap-api-controller.apps.api-controller.apicurio.integration-qe.com:443'
+APICURIO_REGISTRY_URL = ""
+KAFKA_BOOTSTRAP_SERVERS = ""
 GROUP_ID = uuid.uuid4()
 
 def create_consumer():

@@ -1,4 +1,4 @@
-# api-controller-poc
+# Apicurio API Controller
 
 ## Description
 
@@ -25,13 +25,13 @@ Any operator used in this demo must be installed using the Openshift console.
 
 ## Installation
 
-1. We must start by creating the namespace that will be used for this project:
+1. We must start by creating the Gateway that will handle the traffic for our applications. We provide one in [the deployments directory](./deployment/petstore/gateway.yaml)
+
+2. Once the Gateway is available, we must create the namespace that will be used for this the diffent workflow components:
 
   `oc apply -f ./deployment/namespace/apicurio-api-controller.yaml`
 
-3. Now we have to deploy Strimzi. It can be installed from Operator Hub in Openshift or using the following command:
-
-`oc create -f https://strimzi.io/install/latest?namespace=api-controller -n api-controller`
+3. Now we have to deploy Strimzi. It can be installed from Operator Hub in your Openshift cluster.
 
 4. Once Strimzi is installed, we must create the Kafka cluster and the Connect cluster that will be used for firing events from Apicurio Registry:
 
@@ -61,17 +61,24 @@ Any operator used in this demo must be installed using the Openshift console.
   * Deploy Postgresql connector: `oc apply -f ./deployment/debezium/postgresql-source.yaml`
   * Check connector status: `oc get kafkaconnector postgres-connector0 -n api-controller -o jsonpath='{.status}'`
 
-8. Install ArgoCD. For the full integration to work, argocd is required. It will sync the Kuadrant resources generated and apply them to the Openshift cluster. The argocd operator can be installed from the Openshift Console, just like Strimzi or Kuadrant. For convenience, we recommend installing the Red Hat OpenShift GitOps operator.
+8. Install ArgoCD. For the full integration to work, argocd is required. It will sync the Kuadrant resources generated and apply them to the Openshift cluster. The argocd operator can be installed from the Openshift Console, just like Strimzi or Kuadrant. For convenience, we recommend installing the Red Hat OpenShift GitOps operator. This operator creates both an ArgoCD project and an ArgoCD instance that we will refer to in our application.
 
    * Once the ArgoCD operator has been installed, we must install the ArgoCD resources:
-     * Create ArgoCD role, so that the ArgoCD ServiceAccount can manage Kuadrant resources:  `oc apply -f ./deployment/argocd/cluster_role.yaml`
+     * First we must create the ArgoCD role, so that the ArgoCD ServiceAccount can manage Kuadrant resources:  `oc apply -f ./deployment/argocd/cluster_role.yaml`
      * Assing the role to the ArgoCD service account: `oc apply -f ./deployment/argocd/argocd_role_binding.yaml`
-     * Create ArgoCD app: `oc apply -f ./deployment/argocd/argocd_app.yaml`
+     * Create ArgoCD app, changing the git repository and the directory to the values to be used by the synchronization: `oc apply -f ./deployment/argocd/argocd_app.yaml`
 
 
 ## Using the project.
 
-In this section we will discuss an example that uses the different components that have been deployed above. We must follow the steps below:
+### Pre-requisites
+
+* This workflow assumes an existing git repository is setup in a directory `api-resources` in the project root directory. This is the same repository that must be configured in the ArgoCD application.
+* Before going through the workflow, we will deploy an example application: `oc apply -f ./deployment/petstore/petstore.yaml`
+
+### Workflow
+
+We will discuss an example that uses the different components that have been deployed above. We must follow the steps below:
 
 * Step 1: The API design process starts in Apicurio Studio. This is where API developers, architects, and stakeholders define the API specification using the OpenAPI (or AsyncAPI) format. Here, they specify details like:
   * API paths (endpoints)
@@ -82,14 +89,19 @@ Rate limits, request quotas, etc.
 
 * Step 2: We must go to Apicurio Studio and copy the [petstore API spec](./deployment/petstore/petstore-with-rate-limit.yaml). This OpenAPI spec has a rate limit specification defined using the x-kuadrant format.
 
-* Step 3: Once the API design is completed by the team, from Studio, the API can be transitioned from _draft_ status to _enabled_. This will fire a design finalized event from Apicurio Registry that will reach Kafka.  the API specification is saved directly into Apicurio Registry from Apicurio Studio.
+* Step 3: Once the API design is completed by the team, from Studio, the API can be transitioned from _draft_ status to _enabled_. This will fire a design finalized event from Apicurio Registry that will reach Kafka.  The API specification is saved directly into Apicurio Registry from Apicurio Studio.
 
 * Step 4: (Optional) For each new version created, a new event is fired to Kafka.
 
-* Step 5: As an example integration, a [Python script](./scripts/events-consumer.py) is provided. For each OpenApi that has been created in Apicurio Registry in enabled state, the Kuadrant CLI is invoked, generating the HTTPRoute, RateLimit policy and AuthPolicy (if they're defined). 
+* Step 5: As an example integration, a [Python script](./scripts/events-consumer.py) is provided. If you want to use this script, you have to change it to use the proper bootstrap servers and Apicurio Registry API values from your cluster. For each OpenApi that has been created in Apicurio Registry in enabled state, the Kuadrant CLI is invoked, generating the HTTPRoute, RateLimit policy and AuthPolicy (if they're defined). 
 
-* Step 5: Upon consuming an event, the events-consumer.py script extracts the metadata (such as artifact identifier and version) from the event and retrieves the latest version of the API specification from Apicurio Registry.
+* Step 6: The events-consumer.py script then stores the API specification in the Git repository located in the directory `api-resources` for additional version control and traceability. Storing API specs in Git allows the team to maintain a full history of the API designs outside the registry, making it easier to audit, collaborate, or revert changes.
 
-* Step 6: The events-consumer.py script then stores the API specification in a Git repository located in the directory api-resources for additional version control and traceability. Storing API specs in Git allows the team to maintain a full history of the API designs outside the registry, making it easier to audit, collaborate, or revert changes.
+* Step 7: The git repository configured is used in a GitOps fashion, ArgoCD will take the resources defined in the git repository and sync them in Kuadrant.
 
-* Step 7: The events-consumer.py writes to a Git repo, that is used in a GitOps fashion to propagate changes to Kuadrant. An initial implementation will show how to achieve this via ArgoCD makes an API call to Kuadrant to apply or update the policies based on the spec. This step ensures that the API’s rate limits, authentication mechanisms, and traffic controls are enforced in line with the API’s definition.
+* Step 8: Once the resources have been defined, the rate limits defined in the Petstore OpenAPI file are enforced. Now it's time to test it
+  * Execute the following command to forward the traffic from localhost to the Istio service: ` kubectl port-forward -n gateway-system service/external-istio 9081:80`.
+  * Execute `curl -H 'Host: petstore.io' http://localhost:9081/dog -i`. The dog endpoint does not have any rate limit defined, so you can execute this command as many times as you want.
+  * Execute `curl -H 'Host: petstore.io' http://localhost:9081/cat -i`. The cat endpoint has a very aggressive rate limit policy (1req/10s), so the second time you execute the command you'll get a `429` error.
+
+This project has been set up as an example of Kuadrant policy design and enforcement and as a potential workflow to be used in production. Just like with the rate limit policy applied to the cat endpoint, this flow can be used for any other Kuadrant resource, like authentication policies.
