@@ -78,7 +78,7 @@ Any operator used in this demo must be installed using the Openshift console.
 
 ### Workflow
 
-We will discuss an example that uses the different components that have been deployed above. We must follow the steps below:
+We will discuss an example that uses the different components that have been deployed above. We must follow the steps below, that can be checked in the sequence diagram ![Sequence diagram displaying the flow for API designs going from Apicurio Studio to the Kuadrant resources being generated in the cluster](diagram.png):
 
 * Step 1: The API design process starts in Apicurio Studio. This is where API developers, architects, and stakeholders define the API specification using the OpenAPI (or AsyncAPI) format. Here, they specify details like:
   * API paths (endpoints)
