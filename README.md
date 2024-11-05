@@ -80,28 +80,28 @@ Any operator used in this demo must be installed using the Openshift console.
 
 We will discuss an example that uses the different components that have been deployed above. We must follow the steps below, that can be checked in the sequence diagram ![Sequence diagram displaying the flow for API designs going from Apicurio Studio to the Kuadrant resources being generated in the cluster](diagram.png):
 
-* Step 1: The API design process starts in Apicurio Studio. This is where API developers, architects, and stakeholders define the API specification using the OpenAPI (or AsyncAPI) format. Here, they specify details like:
+* *Step 1*: The API design process starts in Apicurio Studio. This is where API developers, architects, and stakeholders define the API specification using the OpenAPI (or AsyncAPI) format. Here, they specify details like:
   * API paths (endpoints)
 Methods (GET, POST, etc.)
 Request/response formats
 Security (OAuth2, JWT, etc.)
 Rate limits, request quotas, etc.
 
-* Step 2: We must go to Apicurio Studio and copy the [petstore API spec](./deployment/petstore/petstore-with-rate-limit.yaml). This OpenAPI spec has a rate limit specification defined using the x-kuadrant format.
+* *Step 2*: We must go to Apicurio Studio and copy the [petstore API spec](./deployment/petstore/petstore-with-rate-limit.yaml). This OpenAPI spec has a rate limit specification defined using the x-kuadrant format.
 
-* Step 3: Once the API design is completed by the team, from Studio, the API can be transitioned from _draft_ status to _enabled_. This will fire a design finalized event from Apicurio Registry that will reach Kafka.  The API specification is saved directly into Apicurio Registry from Apicurio Studio.
+* *Step 3*: Once the API design is completed by the team, from Studio, the API can be transitioned from _draft_ status to _enabled_. This will fire a design finalized event from Apicurio Registry that will reach Kafka.  The API specification is saved directly into Apicurio Registry from Apicurio Studio.
 
-* Step 4: (Optional) For each new version created, a new event is fired to Kafka.
+* *Step 4*: (Optional) For each new version created, a new event is fired to Kafka.
 
-* Step 5: As an example integration, a [Python script](./scripts/events-consumer.py) is provided. If you want to use this script, you have to change it to use the proper bootstrap servers and Apicurio Registry API values from your cluster. For each OpenApi that has been created in Apicurio Registry in enabled state, the Kuadrant CLI is invoked, generating the HTTPRoute, RateLimit policy and AuthPolicy (if they're defined). 
+* *Step 5*: As an example integration, a [Python script](./scripts/events-consumer.py) is provided. If you want to use this script, you have to change it to use the proper bootstrap servers and Apicurio Registry API values from your cluster. For each OpenApi that has been created in Apicurio Registry in enabled state, the Kuadrant CLI is invoked, generating the HTTPRoute, RateLimit policy and AuthPolicy (if they're defined). 
 
-* Step 6: The events-consumer.py script then stores the API specification in the Git repository located in the directory `api-resources` for additional version control and traceability. Storing API specs in Git allows the team to maintain a full history of the API designs outside the registry, making it easier to audit, collaborate, or revert changes.
+* *Step 6*: The events-consumer.py script then stores the API specification in the Git repository located in the directory `api-resources` for additional version control and traceability. Storing API specs in Git allows the team to maintain a full history of the API designs outside the registry, making it easier to audit, collaborate, or revert changes.
 
-* Step 7: The git repository configured is used in a GitOps fashion, ArgoCD will take the resources defined in the git repository and sync them in Kuadrant.
+* *Step 7*: The git repository configured is used in a GitOps fashion, ArgoCD will take the resources defined in the git repository and sync them in Kuadrant.
 
-* Step 8: Once the resources have been defined, the rate limits defined in the Petstore OpenAPI file are enforced. Now it's time to test it
+* *Step 8*: Once the resources have been defined, the rate limits defined in the Petstore OpenAPI file are enforced. Now it's time to test it
   * Execute the following command to forward the traffic from localhost to the Istio service: ` kubectl port-forward -n gateway-system service/external-istio 9081:80`.
-  * Execute `curl -H 'Host: petstore.io' http://localhost:9081/dog -i`. The dog endpoint does not have any rate limit defined, so you can execute this command as many times as you want.
-  * Execute `curl -H 'Host: petstore.io' http://localhost:9081/cat -i`. The cat endpoint has a very aggressive rate limit policy (1req/10s), so the second time you execute the command you'll get a `429` error.
+  * Execute `curl -H 'Host: petstore.io' http://localhost:9081/v2/dog -i`. The dog endpoint does not have any rate limit defined, so you can execute this command as many times as you want.
+  * Execute `curl -H 'Host: petstore.io' http://localhost:9081/v2/cat -i`. The cat endpoint has a very aggressive rate limit policy (1req/10s), so the second time you execute the command you'll get a `429` error.
 
 This project has been set up as an example of Kuadrant policy design and enforcement and as a potential workflow to be used in production. Just like with the rate limit policy applied to the cat endpoint, this flow can be used for any other Kuadrant resource, like authentication policies.

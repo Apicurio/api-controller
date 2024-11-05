@@ -1,7 +1,7 @@
 openapi: "3.0.3"
 info:
   title: "Pet Store API"
-  version: "1.0.0"
+  version: "2.0.0"
 x-kuadrant:
   route:
     name: "petstorev2"
