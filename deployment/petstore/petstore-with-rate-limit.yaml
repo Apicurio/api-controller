@@ -12,54 +12,34 @@ x-kuadrant:
         namespace: gateway-system
 paths:
   /v2/cat:
-    x-kuadrant:
-      backendRefs:
-        - name: petstore
-          port: 80
-          namespace: petstore
-      rate_limit:
-        rates:
-          - limit: 1
-            duration: 10
-            unit: second
     get:
-      x-kuadrant: ## Operation level Kuadrant Extension
-        backendRefs:
-          - name: petstore
-            port: 80
-            namespace: petstore
       operationId: "getCat"
       responses:
         405:
           description: "invalid input"
     post:
-      x-kuadrant: ## Operation level Kuadrant Extension
-        backendRefs:
-          - name: petstore
-            port: 80
-            namespace: petstore
       operationId: "postCat"
       responses:
         405:
           description: "invalid input"
+    x-kuadrant: ## Operation level Kuadrant Extension
+      backendRefs:
+        - name: petstore
+          port: 80
+          namespace: petstore
   /v2/dog:
     get:
-      x-kuadrant: ## Operation level Kuadrant Extension
-        backendRefs:
-          - name: petstore
-            port: 80
-            namespace: petstore
       operationId: "getDog"
       responses:
         405:
           description: "invalid input"
     post:
-      x-kuadrant: ## Operation level Kuadrant Extension
-        backendRefs:
-          - name: petstore
-            port: 80
-            namespace: petstore
       operationId: "postDog"
       responses:
         405:
           description: "invalid input"
+    x-kuadrant: ## Operation level Kuadrant Extension
+      backendRefs:
+        - name: petstore
+          port: 80
+          namespace: petstore

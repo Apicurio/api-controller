@@ -5,33 +5,32 @@ import subprocess
 import uuid
 import shutil
 import yaml
+import argparse
 
+from apicurioregistrysdk.client.models.version_state import VersionState
 from apicurioregistrysdk.client.registry_client import RegistryClient
 from confluent_kafka import Consumer, KafkaError
 from httpx import AsyncClient
 from kiota_abstractions.authentication import AnonymousAuthenticationProvider
 from kiota_http.httpx_request_adapter import HttpxRequestAdapter
 
-KAFKA_TOPIC = 'outbox.event.registry-events'
-APICURIO_REGISTRY_URL = ""
-KAFKA_BOOTSTRAP_SERVERS = ""
 GROUP_ID = uuid.uuid4()
 
-def create_consumer():
+def create_consumer(kafka_bootstrap_server, kafka_topic):
     """
     Create and return a Kafka consumer configured for the given topic and server.
     """
     consumer = Consumer({
-        'bootstrap.servers': KAFKA_BOOTSTRAP_SERVERS,
+        'bootstrap.servers': kafka_bootstrap_server,
         'group.id': GROUP_ID,
         'auto.offset.reset': 'earliest',
         'security.protocol': 'SSL',
         'enable.ssl.certificate.verification': 'false',
     })
-    consumer.subscribe([KAFKA_TOPIC])
+    consumer.subscribe([kafka_topic])
     return consumer
 
-def consume_messages_in_batches(consumer, batch_size=10, timeout=5, idle_timeout=10):
+def consume_messages_in_batches(consumer, apicurio_registry_url, batch_size=10, timeout=5, idle_timeout=10):
     """
     Consume Kafka messages in batches. If no messages are received within the idle_timeout, invoke the Kuadrant CLI.
     """
@@ -42,7 +41,7 @@ def consume_messages_in_batches(consumer, batch_size=10, timeout=5, idle_timeout
 
             if messages:
                 idle_time = 0
-                process_messages(messages)
+                process_messages(messages, apicurio_registry_url)
             else:
                 idle_time += timeout
                 if idle_time >= idle_timeout:
@@ -52,7 +51,7 @@ def consume_messages_in_batches(consumer, batch_size=10, timeout=5, idle_timeout
     finally:
         consumer.close()
 
-def process_messages(messages):
+def process_messages(messages, apicurio_registry_url):
     """
     Process a batch of messages.
     """
@@ -65,11 +64,11 @@ def process_messages(messages):
                 continue
 
         try:
-            process_message(msg)
+            process_message(msg, apicurio_registry_url)
         except json.JSONDecodeError as e:
             print(f"Error decoding message: {e}")
 
-def process_message(msg):
+def process_message(msg, apicurio_registry_url):
     """
     Process the Kafka message to extract artifactId, version, and group_id (if present).
     """
@@ -81,11 +80,18 @@ def process_message(msg):
         version = payload.get('version')
 
         event_type = payload.get('eventType')
-        group_id = payload.get('group_id', 'default')
+        group_id = payload.get('groupId', 'default')
 
         if event_type == "ARTIFACT_VERSION_CREATED":
             print(f"Artifact version created event - {event_type}: Artifact ID: {artifact_id}, Version: {version}")
-            asyncio.run(get_artifact_content(group_id, artifact_id, version))
+            asyncio.run(get_artifact_content(group_id, artifact_id, version, apicurio_registry_url))
+        elif event_type == "ARTIFACT_VERSION_STATE_CHANGED":
+            new_state = payload.get('newState')
+            if new_state == 'ENABLED':
+                print(f"Artifact version enabled event - {event_type}: Artifact ID: {artifact_id}, Version: {version}")
+                asyncio.run(get_artifact_content(group_id, artifact_id, version, apicurio_registry_url))
+            else:
+                print(f"Skipping artifact {artifact_id} with newState: {new_state}")
         elif event_type == "ARTIFACT_DELETED":
             print(f"Artifact deleted event - {event_type}: Artifact ID: {artifact_id}")
             delete_artifact_directory(group_id, artifact_id)
@@ -100,7 +106,7 @@ def process_message(msg):
     except KeyError as e:
         print(f"Missing expected key: {e}")
 
-async def get_artifact_content(group_id, artifact_id, version):
+async def get_artifact_content(group_id, artifact_id, version, apicurio_registry_url):
     """
     Fetch the artifact content from Apicurio Registry using the artifact ID and version.
     """
@@ -108,13 +114,16 @@ async def get_artifact_content(group_id, artifact_id, version):
         authentication_provider = AnonymousAuthenticationProvider()
         client = AsyncClient(verify=False)
         request_adapter = HttpxRequestAdapter(authentication_provider=authentication_provider, http_client=client)
-        request_adapter.base_url = APICURIO_REGISTRY_URL
+        request_adapter.base_url = apicurio_registry_url
         client = RegistryClient(request_adapter)
 
         artifact_content = await client.groups.by_group_id(group_id).artifacts.by_artifact_id(
             artifact_id).versions.by_version_expression(version).content.get()
 
-        invoke_kuadrant_cli(group_id, artifact_id, version, artifact_content)
+        state = await client.groups.by_group_id(group_id).artifacts.by_artifact_id(artifact_id).versions.by_version_expression(version).state.get()
+
+        if state.state == VersionState.ENABLED:
+            invoke_kuadrant_cli(group_id, artifact_id, version, artifact_content)
     except Exception as e:
         print(f"Failed to retrieve artifact content for {artifact_id} version {version}: {e}")
         return None
@@ -225,13 +234,26 @@ def commit_and_push_to_git():
     except subprocess.CalledProcessError as e:
         print(f"Error committing and pushing to Git:\n{e.stderr}")
 
-def main():
+def main(kafka_bootstrap_server, apicurio_registry_url, kafka_topic):
     """
     Main function to set up Kafka consumer and process messages in a loop.
     """
-    consumer = create_consumer()
-    consume_messages_in_batches(consumer, batch_size=10, timeout=5)
+
+    print(f"Kafka Bootstrap Server: {kafka_bootstrap_server}")
+    print(f"Apicurio Registry URL: {apicurio_registry_url}")
+    print(f"Kafka Events Topic: {kafka_topic}")
+
+    consumer = create_consumer(kafka_bootstrap_server, kafka_topic)
+    consume_messages_in_batches(consumer, apicurio_registry_url, batch_size=10, timeout=5)
 
 # Entry point of the script
 if __name__ == '__main__':
-    main()
+    parser = argparse.ArgumentParser(description="Process Kafka messages and interact with Apicurio Registry")
+    parser.add_argument('--kafka-bootstrap-server', required=True, help="Kafka bootstrap server (e.g., localhost:9092)")
+    parser.add_argument('--apicurio-registry-url', required=True,
+                        help="URL for the Apicurio Registry (e.g., http://localhost:8080/apis/registry/v3)")
+    parser.add_argument('--kafka-topic', required=True,
+                        help="Kafka Topic source for Apicurio Registry events")
+
+    args = parser.parse_args()
+    main(args.kafka_bootstrap_server, args.apicurio_registry_url, args.kafka_topic)
