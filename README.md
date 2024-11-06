@@ -7,9 +7,6 @@ This project includes the following components:
 
 * [Apicurio Studio](https://github.com/apicurio/apicurio-studio), a design tool for visually creating schemas.
 * [Apicurio Registry](https://github.com/apicurio/apicurio-registry), a high performance, runtime registry for API designs and schemas.
-* [Strimzi](https://github.com/strimzi), provides the ability to run Apache Kafka and Kafka Connect on Kubernetes.
-* [PostgreSQL](https://github.com/postgres/postgres), a high performance open-source relational database.
-* [Debezium](https://github.com/debezium/debezium/), a CDC platform for capturing changes from database transaction logs.
 * [ArgoCD](https://github.com/argoproj/argo-cd), is a declarative, GitOps continuous delivery tool for Kubernetes.
 * [Kuadrant](https://github.com/Kuadrant), an open-source project designed to provide a unified and simplified interface for managing multiple API gateways.
 
@@ -31,32 +28,13 @@ Any operator used in this demo must be installed using the Openshift console.
 
   `oc apply -f ./deployment/namespace/apicurio-api-controller.yaml`
 
-3. Now we have to deploy Strimzi. It can be installed from Operator Hub in your Openshift cluster.
+3. Now we have to deploy the Apicurio components. We will start with Apicurio Registry, since Apicurio Studio will use it to store the API designs:
 
-4. Once Strimzi is installed, we must create the Kafka cluster and the Connect cluster that will be used for firing events from Apicurio Registry:
-
-`oc apply -f ./deployment/kafka/kafka.yaml`
-
-  * We can check the state of the Kafka cluster using the following command:
-
-`oc get kafka kafka-cluster -n api-controller -o jsonpath='{.status.conditions[?(@.type=="Ready")].status}'`
-
-5. Once our Kafka cluster is ready, it's time to create the Kafka Connect cluster. This is a key component since the PostgreSQL connector that will be listening for events in the Apicurio Registry database will be deployed here.
-
-`oc apply -f ./deployment/kafka/kafka-connect.yaml`
-
-  * As with Kafka, we can check the status of the Connect cluster using:
-
-`oc get kafkaconnect kafka-connect-cluster -n api-controller -o jsonpath='{.status.conditions[?(@.type=="Ready")].status}'`
-
-6. Now we have our Kafka components ready to receive events, so we have to deploy the Apicurio components. We will start with Apicurio Registry, since Apicurio Studio will use it to store the API designs:
-
-   * Deploy Apicurio Registry database: `oc apply -f ./deployment/apicurio-registry/postgresql.yaml`
-   * Deploy Apicurio Registry backend: `oc apply -f ./deployment/apicurio-registry/registry-sql.yaml`
+   * Deploy Apicurio Registry backend: `oc apply -f ./deployment/apicurio-registry/registry.yaml`
    * Deploy Apicurio Registry UI: `oc process -f ./deployment/apicurio-registry/registry-ui.yaml -p REGISTRY_API_URL="https://$(oc get route apicurio-registry -n api-controller -o jsonpath='{.spec.host}')/apis/registry/v3" | oc apply -f -`
    * Deploy Apicurio Studio UI: `oc process -f ./deployment/apicurio-studio/apicurio-studio.yaml -p APICURIO_REGISTRY_API_URL="https://$(oc get route apicurio-registry -n api-controller -o jsonpath='{.spec.host}')/apis/registry/v3" | oc apply -f -`
 
-7. Once the Apicurio components have been installed, it's time to install the Postgresql connector that will be listening for events in Apicurio Registry and sending them to Kafka. This way we can use the [Python script](./scripts/events-consumer.py) to consume them.
+7. Once the Apicurio components have been installed, it's time to install the Postgresql connector that will be listening for events in Apicurio Registry and sending them to Kafka. This way we can use the [Python script](./scripts/artifacts_processor.py) to consume them.
 
   * Deploy Postgresql connector: `oc apply -f ./deployment/debezium/postgresql-source.yaml`
   * Check connector status: `oc get kafkaconnector postgres-connector0 -n api-controller -o jsonpath='{.status}'`
@@ -93,7 +71,7 @@ Rate limits, request quotas, etc.
 
 * *Step 4*: (Optional) For each new version created, a new event is fired to Kafka.
 
-* *Step 5*: As an example integration, a [Python script](./scripts/events-consumer.py) is provided. If you want to use this script, you have to change it to use the proper bootstrap servers and Apicurio Registry API values from your cluster. For each OpenApi that has been created in Apicurio Registry in enabled state, the Kuadrant CLI is invoked, generating the HTTPRoute, RateLimit policy and AuthPolicy (if they're defined). 
+* *Step 5*: As an example integration, a [Python script](./scripts/artifacts_processor.py) is provided. If you want to use this script, you have to change it to use the proper bootstrap servers and Apicurio Registry API values from your cluster. For each OpenApi that has been created in Apicurio Registry in enabled state, the Kuadrant CLI is invoked, generating the HTTPRoute, RateLimit policy and AuthPolicy (if they're defined). 
 
 * *Step 6*: The events-consumer.py script then stores the API specification in the Git repository located in the directory `api-resources` for additional version control and traceability. Storing API specs in Git allows the team to maintain a full history of the API designs outside the registry, making it easier to audit, collaborate, or revert changes.
 

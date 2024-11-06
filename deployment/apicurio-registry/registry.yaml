@@ -3,17 +3,17 @@ kind: Deployment
 metadata:
   namespace: "api-controller"
   labels:
-    app: apicurio-registry-sql
+    app: apicurio-registry-gitops
   name: apicurio-registry-deployment
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: apicurio-registry-sql
+      app: apicurio-registry-gitops
   template:
     metadata:
       labels:
-        app: apicurio-registry-sql
+        app: apicurio-registry-gitops
     spec:
       containers:
         - env:
@@ -21,22 +21,10 @@ spec:
               valueFrom:
                 fieldRef:
                   fieldPath: metadata.namespace
-            - name: APICURIO_STORAGE_SQL_KIND
-              value: "postgresql"
-            - name: APICURIO_DATASOURCE_URL
-              value: jdbc:postgresql://postgresql-service:5432/registry
-            - name: APICURIO_DATASOURCE_USERNAME
-              value: "apicurio"
-            - name: APICURIO_DATASOURCE_PASSWORD
-              value: "registry"
-            - name: APICURIO_REST_DELETION_ARTIFACT_ENABLED
-              value: "true"
-            - name: APICURIO_REST_DELETION_ARTIFACT-VERSION_ENABLED
-              value: "true"
-            - name: APICURIO_REST_DELETION_GROUP_ENABLED
-              value: "true"
-            - name: APICURIO_REST_MUTABILITY_ARTIFACT-VERSION-CONTENT_ENABLED
-              value: "true"
+            - name: APICURIO_STORAGE_KIND
+              value: "gitops"
+            - name: APICURIO_GITOPS_REPO_ORIGIN_URI
+              value: https://github.com/carlesarnal/api-resources
             - name: QUARKUS_HTTP_CORS_ORIGINS
               value: "*"
           image: quay.io/apicurio/apicurio-registry:latest-snapshot
@@ -51,7 +39,7 @@ spec:
             periodSeconds: 10
             successThreshold: 1
             timeoutSeconds: 10
-          name: apicurio-registry-sql
+          name: apicurio-registry-gitops
           ports:
             - containerPort: 8080
               name: http
@@ -74,7 +62,7 @@ metadata:
   namespace: api-controller
 spec:
   selector:
-    app: apicurio-registry-sql
+    app: apicurio-registry-gitops
   ports:
     - protocol: TCP
       port: 80
