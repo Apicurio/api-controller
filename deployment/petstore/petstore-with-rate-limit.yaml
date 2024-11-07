@@ -27,6 +27,11 @@ paths:
         - name: petstore
           port: 80
           namespace: petstore
+      rate_limit:
+        rates:
+          - limit: 1
+            duration: 10
+            unit: second
   /v2/dog:
     get:
       operationId: "getDog"

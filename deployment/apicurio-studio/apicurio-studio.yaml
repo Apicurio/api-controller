@@ -1,84 +1,85 @@
-apiVersion: template.openshift.io/v1
-kind: Template
+apiVersion: apps/v1
+kind: Deployment
 metadata:
-  name: apicurio-studio-template
-  namespace: api-controller
-parameters:
-  - name: APICURIO_REGISTRY_API_URL
-    description: "The URL for the Apicurio Registry API"
-    required: true
-objects:
-  - apiVersion: apps/v1
-    kind: Deployment
+  labels:
+    app: apicurio-studio
+    component: apicurio-studio-ui
+  name: apicurio-studio-ui
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      component: apicurio-studio-ui
+  template:
     metadata:
       labels:
         app: apicurio-studio
         component: apicurio-studio-ui
-      name: apicurio-studio-ui
     spec:
-      replicas: 1
-      selector:
-        matchLabels:
-          component: apicurio-studio-ui
-      template:
-        metadata:
-          labels:
-            app: apicurio-studio
-            component: apicurio-studio-ui
-        spec:
-          containers:
-            - image: quay.io/apicurio/apicurio-studio-ui:latest-snapshot
-              name: apicurio-studio-ui
-              ports:
-                - name: web
-                  containerPort: 8080
-                  protocol: TCP
-              env:
-                - name: APICURIO_REGISTRY_API_URL
-                  value: "${APICURIO_REGISTRY_API_URL}"  # Value injected dynamically
-              resources:
-                limits:
-                  cpu: 200m
-                  memory: 500Mi
-                requests:
-                  cpu: 100m
-                  memory: 250Mi
-              livenessProbe:
-                httpGet:
-                  path: /config.js
-                  port: 8080
-                initialDelaySeconds: 10
-              readinessProbe:
-                httpGet:
-                  path: /config.js
-                  port: 8080
-                initialDelaySeconds: 10
-  - apiVersion: v1
+      containers:
+        - image: >-
+            quay.io/apicurio/apicurio-studio-ui:latest-snapshot
+          name: apicurio-studio-ui
+          ports:
+            - name: web
+              containerPort: 8080
+              protocol: TCP
+          resources:
+            limits:
+              cpu: 200m
+              memory: 500Mi
+            requests:
+              cpu: 100m
+              memory: 250Mi
+          livenessProbe:
+            httpGet:
+              path: /config.js
+              port: 8080
+              scheme: HTTP
+            initialDelaySeconds: 10
+            timeoutSeconds: 5
+            periodSeconds: 10
+            successThreshold: 1
+            failureThreshold: 3
+          readinessProbe:
+            httpGet:
+              path: /config.js
+              port: 8080
+              scheme: HTTP
+            initialDelaySeconds: 10
+            timeoutSeconds: 5
+            periodSeconds: 10
+            successThreshold: 1
+            failureThreshold: 3
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: apicurio-studio
+  namespace: api-controller
+spec:
+  selector:
+    app: apicurio-studio
+  ports:
+    - protocol: TCP
+      port: 80
+      targetPort: 8080
+---
+apiVersion: route.openshift.io/v1
+kind: Route
+metadata:
+  name: apicurio-studio
+  namespace: api-controller
+spec:
+  path: /
+  to:
+    name: apicurio-studio
+    weight: 100
     kind: Service
-    metadata:
-      name: apicurio-studio
-      namespace: api-controller
-    spec:
-      selector:
-        app: apicurio-studio
-      ports:
-        - protocol: TCP
-          port: 80
-          targetPort: 8080
-  - apiVersion: route.openshift.io/v1
-    kind: Route
-    metadata:
-      name: apicurio-studio
-      namespace: api-controller
-    spec:
-      path: /
-      to:
-        name: apicurio-studio
-        weight: 100
-        kind: Service
-      host: ''
-      tls:
-        insecureEdgeTerminationPolicy: Redirect
-        termination: edge
-      port:
-        targetPort: 8080
+  host: ''
+  tls:
+    insecureEdgeTerminationPolicy: Redirect
+    termination: edge
+  port:
+    targetPort: 8080
+  alternateBackends: []
