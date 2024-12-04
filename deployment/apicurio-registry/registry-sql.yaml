@@ -1,100 +1,20 @@
-apiVersion: apps/v1
-kind: Deployment
+kind: ApicurioRegistry3
+apiVersion: registry.apicur.io/v1
 metadata:
-  namespace: "api-controller"
+  name: apicurio-registry-deployment
+  namespace: api-controller
   labels:
     app: apicurio-registry-sql
-  name: apicurio-registry-deployment
 spec:
-  replicas: 1
-  selector:
-    matchLabels:
-      app: apicurio-registry-sql
-  template:
-    metadata:
-      labels:
-        app: apicurio-registry-sql
-    spec:
-      containers:
-        - env:
-            - name: KUBERNETES_NAMESPACE
-              valueFrom:
-                fieldRef:
-                  fieldPath: metadata.namespace
-            - name: APICURIO_STORAGE_SQL_KIND
-              value: "postgresql"
-            - name: APICURIO_DATASOURCE_URL
-              value: jdbc:postgresql://postgresql-service:5432/registry
-            - name: APICURIO_DATASOURCE_USERNAME
-              value: "apicurio"
-            - name: APICURIO_DATASOURCE_PASSWORD
-              value: "registry"
-            - name: APICURIO_REST_DELETION_ARTIFACT_ENABLED
-              value: "true"
-            - name: APICURIO_REST_DELETION_ARTIFACT-VERSION_ENABLED
-              value: "true"
-            - name: APICURIO_REST_DELETION_GROUP_ENABLED
-              value: "true"
-            - name: APICURIO_REST_MUTABILITY_ARTIFACT-VERSION-CONTENT_ENABLED
-              value: "true"
-            - name: QUARKUS_HTTP_CORS_ORIGINS
-              value: "*"
-          image: quay.io/apicurio/apicurio-registry:latest-snapshot
-          imagePullPolicy: Always
-          livenessProbe:
-            failureThreshold: 3
-            httpGet:
-              path: /health/live
-              port: 8080
-              scheme: HTTP
-            initialDelaySeconds: 10
-            periodSeconds: 10
-            successThreshold: 1
-            timeoutSeconds: 10
-          name: apicurio-registry-sql
-          ports:
-            - containerPort: 8080
-              name: http
-              protocol: TCP
-          readinessProbe:
-            failureThreshold: 3
-            httpGet:
-              path: /health/ready
-              port: 8080
-              scheme: HTTP
-            initialDelaySeconds: 10
-            periodSeconds: 10
-            successThreshold: 1
-            timeoutSeconds: 10
----
-apiVersion: v1
-kind: Service
-metadata:
-  name: apicurio-registry
-  namespace: api-controller
-spec:
-  selector:
-    app: apicurio-registry-sql
-  ports:
-    - protocol: TCP
-      port: 80
-      targetPort: 8080
----
-apiVersion: route.openshift.io/v1
-kind: Route
-metadata:
-  name: apicurio-registry
-  namespace: api-controller
-spec:
-  path: /
-  to:
-    name: apicurio-registry
-    weight: 100
-    kind: Service
-  host: ''
-  tls:
-    insecureEdgeTerminationPolicy: Redirect
-    termination: edge
-  port:
-    targetPort: 8080
-  alternateBackends: []
+  app:
+    host: apicurio-registry-api-controller.apps.controller.apicurio.integration-qe.com
+    sql:
+      dataSource:
+        username: apicurio
+        password: registry
+        url: 'jdbc:postgresql://postgresql-service:5432/registry'
+  studioUi:
+    enabled: true
+    host: apicurio-studio-api-controller.apps.controller.apicurio.integration-qe.com
+  ui:
+    host: apicurio-registry-ui-api-controller.apps.controller.apicurio.integration-qe.com

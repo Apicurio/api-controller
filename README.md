@@ -49,12 +49,10 @@ Any operator used in this demo must be installed using the Openshift console.
 
 `oc get kafkaconnect kafka-connect-cluster -n api-controller -o jsonpath='{.status.conditions[?(@.type=="Ready")].status}'`
 
-6. Now we have our Kafka components ready to receive events, so we have to deploy the Apicurio components. We will start with Apicurio Registry, since Apicurio Studio will use it to store the API designs:
+6. Now we have our Kafka components ready to receive events, so we have to deploy the Apicurio components. They can be installed using the new Apicurio API Controller Operator in OperatorHub:
 
    * Deploy Apicurio Registry database: `oc apply -f ./deployment/apicurio-registry/postgresql.yaml`
-   * Deploy Apicurio Registry backend: `oc apply -f ./deployment/apicurio-registry/registry-sql.yaml`
-   * Deploy Apicurio Registry UI: `oc process -f ./deployment/apicurio-registry/registry-ui.yaml -p REGISTRY_API_URL="https://$(oc get route apicurio-registry -n api-controller -o jsonpath='{.spec.host}')/apis/registry/v3" | oc apply -f -`
-   * Deploy Apicurio Studio UI: `oc process -f ./deployment/apicurio-studio/apicurio-studio.yaml -p APICURIO_REGISTRY_API_URL="https://$(oc get route apicurio-registry -n api-controller -o jsonpath='{.spec.host}')/apis/registry/v3" | oc apply -f -`
+   * Create a new ApicurioRegistry3 CRD, you'll need to change the host values in the example CRD to match those of your cluster: `oc apply -f ./deployment/apicurio-registry/registry-sql.yaml`
 
 7. Once the Apicurio components have been installed, it's time to install the Postgresql connector that will be listening for events in Apicurio Registry and sending them to Kafka. This way we can use the [Python script](./scripts/events-consumer.py) to consume them.
 
