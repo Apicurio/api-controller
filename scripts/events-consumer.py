@@ -106,6 +106,24 @@ def process_message(msg, apicurio_registry_url):
     except KeyError as e:
         print(f"Missing expected key: {e}")
 
+def check_with_spectral(artifact_content):
+    file_name = "openapi.json"
+
+    artifact_file = open(file_name, "w")
+    artifact_file.write(artifact_content)
+    artifact_file.close()
+
+    # configure spectral:
+    spectral_config = open(".spectral.yaml", "w")
+    spectral_config.write("extends: [\"spectral:oas\"]")
+    spectral_config.close()
+
+    process = subprocess.run(["spectral", "lint", "openapi.json"])
+
+    if (process.returncode != 0):
+        print(f"Errors occurred running spectral")
+        sys.exit(-1)
+
 async def get_artifact_content(group_id, artifact_id, version, apicurio_registry_url):
     """
     Fetch the artifact content from Apicurio Registry using the artifact ID and version.
@@ -123,6 +141,7 @@ async def get_artifact_content(group_id, artifact_id, version, apicurio_registry
         state = await client.groups.by_group_id(group_id).artifacts.by_artifact_id(artifact_id).versions.by_version_expression(version).state.get()
 
         if state.state == VersionState.ENABLED:
+            check_with_spectral(artifact_content)
             invoke_kuadrant_cli(group_id, artifact_id, version, artifact_content)
     except Exception as e:
         print(f"Failed to retrieve artifact content for {artifact_id} version {version}: {e}")
