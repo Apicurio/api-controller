@@ -1,3 +1,4 @@
+# Replace mycluster.example.com with your cluster hostname
 # Create an API Controller custom resource
 apiVersion: registry.apicur.io/v1
 kind: ApicurioRegistry3
