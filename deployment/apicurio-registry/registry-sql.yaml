@@ -1,20 +1,82 @@
-kind: ApicurioRegistry3
+# Replace mycluster.example.com with your cluster hostname
+# Create an API Controller custom resource
 apiVersion: registry.apicur.io/v1
+kind: ApicurioRegistry3
 metadata:
   name: apicurio-registry-deployment
   namespace: api-controller
-  labels:
-    app: apicurio-registry-sql
 spec:
+  studioUi:
+    enabled: true
+    env:
+      - name: APICURIO_REGISTRY_API_URL
+        value: 'https://api-controller-app.apps.mycluster.example.com/apis/registry/v3'
+      - name: APICURIO_REGISTRY_UI_URL
+        value: 'https://api-controller-ui.apps.mycluster.example.com'
+  ui:
+    env:
+      - name: REGISTRY_API_URL
+        value: 'https://api-controller-app.apps.mycluster.example.com/apis/registry/v3'
   app:
-    host: apicurio-registry-api-controller.apps.controller.apicurio.integration-qe.com
     sql:
       dataSource:
         username: apicurio
         password: registry
         url: 'jdbc:postgresql://postgresql-service:5432/registry'
-  studioUi:
-    enabled: true
-    host: apicurio-studio-api-controller.apps.controller.apicurio.integration-qe.com
-  ui:
-    host: apicurio-registry-ui-api-controller.apps.controller.apicurio.integration-qe.com
+---
+# Create a route for the Apicurio Registry API
+apiVersion: route.openshift.io/v1
+kind: Route
+metadata:
+  name: api-controller-registry-api
+  namespace: api-controller
+spec:
+  host: api-controller-app.apps.mycluster.example.com
+  path: /
+  to:
+    kind: Service
+    name: apicurio-registry-deployment-app-service
+  port:
+    targetPort: http
+  tls:
+    termination: edge
+    insecureEdgeTerminationPolicy: Redirect
+  wildcardPolicy: None
+---
+# Create a route for the Apicurio Registry UI
+apiVersion: route.openshift.io/v1
+kind: Route
+metadata:
+  name: api-controller-registry-ui
+  namespace: api-controller  
+spec:
+  host: api-controller-ui.apps.mycluster.example.com
+  path: /
+  to:
+    kind: Service
+    name: apicurio-registry-deployment-ui-service
+  port:
+    targetPort: http
+  tls:
+    termination: edge
+    insecureEdgeTerminationPolicy: Redirect
+  wildcardPolicy: None
+---
+# Create a route for the Apicurio Studio UI
+apiVersion: route.openshift.io/v1
+kind: Route
+metadata:
+  name: api-controller-studio-ui
+  namespace: api-controller  
+spec:
+  host: api-controller-studio-ui.apps.mycluster.example.com
+  path: /
+  to:
+    kind: Service
+    name: apicurio-registry-deployment-studio-ui-service
+  port:
+    targetPort: http
+  tls:
+    termination: edge
+    insecureEdgeTerminationPolicy: Redirect
+  wildcardPolicy: None
